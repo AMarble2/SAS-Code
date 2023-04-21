@@ -1,0 +1,128 @@
+
+
+*Question 1;
+libname bios576d '/home/u59282643/BIOS 576D Data Sets';
+
+
+proc import datafile = '~/BIOS 576D Data Sets/Demo_SAS.xlsx' 
+			out = bios576d.customers
+			dbms= xlsx replace; 
+			getnames= yes;
+			sheet = 'Customers';
+run;
+
+proc import datafile = '~/BIOS 576D Data Sets/Demo_SAS.xlsx' 
+			out = bios576d.employees
+			dbms= xlsx replace; 
+			getnames=yes;
+			sheet = 'Employees';
+run;
+
+proc import datafile = '~/BIOS 576D Data Sets/Demo_SAS.xlsx' 
+			out = bios576d.invoice
+			dbms= xlsx replace; 
+			getnames= yes;
+			sheet = 'Invoice';
+run;
+
+
+proc import datafile = '~/BIOS 576D Data Sets/Demo_SAS.xlsx' 
+			out = bios576d.orders
+			dbms= xlsx replace; 
+			sheet = 'Orders';
+run;
+
+*Question 2;
+
+proc contents data=bios576d.customers order=varnum;
+run;
+
+proc contents data=bios576d.orders order=varnum;
+run;
+
+proc contents data=bios576d.invoice order=varnum;
+run;
+
+proc sql outobs=15;
+	select o.order_id label = 'Order ID', 
+		   o.shipped_to label = 'Shipped To',  
+		   c.customer_Id label = 'Customer ID', 
+		   c.name, 
+		   c.address, 
+		   c.city, 
+		   c.state, 
+		   c.zip_code label = 'Zip Code', 
+		   c.country
+	from bios576d.customers as c inner join bios576d.orders as o 
+	on (c.customer_ID = o.shipped_to)
+	order by o.order_id;
+quit;
+
+
+*Question 3;
+
+proc sql; 
+select c.name label = 'Customer Name', 
+       count(i.Amount_Billed_in_US_Dollars) as total_number_of_invoices label = 'Total Number of Invoices',
+       sum(i.Amount_Billed_in_US_Dollars) as total_amount_billed 
+       label = 'Total Amount Billed' format = DOLLAR20.2 length = 50
+	from bios576d.invoice as i left join bios576d.customers as c
+	on (i.billed_to = c.customer_id)
+	group by c.name
+	order by c.name;
+quit;
+
+
+
+*Question 4;
+
+PROC FCMP outlib = work.functions.func; 
+function bmi_calc(units, weight, height);
+BMI = 0;
+if units = 1 then BMI = weight / (height**2);
+if units = 2 then BMI = (weight*0.453592) / ((height*0.0254)**2);
+return (round(BMI, 0.1));
+ENDSUB;
+quit; 
+
+options cmplib=(work.functions);
+
+data hw1;
+	input PatID Sex$ Age Height_cm Weight_kg;
+	datalines;
+1 F 54 162 88
+2 F 66 163 56
+3 M 37 183 89
+4 F 58 159 56
+5 M 51 193 89
+6 M 44 178 92
+7 M 63 199 102
+8 F 59 154 63
+9 M 49 188 88
+10 F 39 149 61
+;
+run;
+
+data hw1;
+set hw1;
+Height = Height_cm / 100;
+Weight = Weight_kg;
+Units = 1;
+BMI = bmi_calc(units, weight, height);
+run;
+
+data imperial;
+set sashelp.class;
+units = 2;
+BMI = bmi_calc(units, weight, height);
+run;
+
+proc print data=hw1 (Drop = height weight units);
+title 'BMI For HW1 Data';
+run;
+
+proc print data=imperial (drop = units);
+title 'BMI for Sashelp.Class';
+run;
+
+
