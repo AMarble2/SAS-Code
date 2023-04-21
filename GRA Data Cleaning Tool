@@ -1,0 +1,390 @@
+
+****************************************************************************************
+This code can be used to clean the CASA survey data. After updating the file with the 
+latest CASA survey data (IMPORTANT: CHOOSE THE "LABELS CSV" OPTION IN REDCAP), this 
+program will rename the columns with the REDCap variable names while maintaining the 
+non-coded (character) answers. This code also produces variables for the aggregates of 
+the multi-select questions: race, cancer type, gender, etc. Further, this code also 
+uses self reportself-reporteded height and weight to calculate BMI.
+***************************************************************************************;
+
+
+the /*Import Excel file and copy/paste/replace the code below*/
+
+libname casa '/home/u59282643/Cancer Center/Cancer Center CASA Data';
+
+*Only have to change file extension in FILENAME statement
+MUST USE LABELS EXPORT IN REDCAP;
+
+FILENAME REFFILE '/home/u59282643/Cancer Center/Cancer Center CASA Data/CASAPopulationHealth-SurveyData_DATA_LABELS_2023-01-27_1114.csv';
+PROC IMPORT DATAFILE=REFFILE
+	DBMS = csv
+	OUT=casa.test replace;
+	GETNAMES=YES;
+	guessingrows= max;
+RUN;
+
+proc contents data=casa.test order = varnum;
+run;
+
+***********************************
+Intermediate data step to rename 
+variables and provide labels using 
+survey questions: Also creates race
+and gender categories. 
+
+NOTE: Must update after "rename"
+using the same format if a new question
+is added to survey
+
+**********************************;
+
+data int1;
+set casa.test;
+rename 
+What_is_your_age_ = scr_age  
+Please_select_your_county_of_re = scr_county
+In_general__how_is_your_health_ = status_general
+Diabetes_or_high_blood_sugar_ = status_diabetes
+High_blood_pressure_or_hyperten = status_hbp
+A_heart_condition_such_as_heart = status_heart
+A_breathing_problem_such_as_lun = status_breathing
+A_mental_health_problem_such_as =  status_mental
+To_your_knowledge__have_you_eve = status_covid
+To_your_knowledge__are_you_now = status_pregnant
+About_how_much_do_you_weigh__in = status_wgt
+About_how_tall_are_you_ = status_hgt_ft
+VAR17 = status_hgt_in
+How_many_days_a_week_do_you_exe = behav_ex
+On_the_days_you_exercise__do_yo = behav_ex_min
+How_many_hours_a_day_do_you_spe = calibration1
+How_many_hours_a_week_do_you_sp = calibration2
+Do_you_usually_try_new_products = calibration3
+Have_you_ever_smoked_cigarettes = behav_smoking
+Have_you_smoked_at_least_100_ci = behav_smoking100       
+How_many_days_a_week_do_you_smo = behav_smoking_freq
+On_the_days_you_smoke__how_many = behav_smoking_cnt
+Have_you_ever_used_an_electroni = behav_ecig
+How_many_days_a_week_do_you_dri = behav_alcohol
+On_the_days_that_you_drink__how = behav_alcohol_freq
+In_the_past_year__how_many_time = sun_sunburn
+When_you_go_outside_for_more_th = sun_protection
+Have_you_ever_had_your_skin_exa = screen_skin
+In_the_past_year__have_you_had = screen_lung
+Have_you_ever_had_a_test_to_che = screen_colon
+When_was_your_last_Pap_test_to = screen_cervical  
+When_was_your_last_mammogram__x = screen_breast
+Have_you_ever_had_a_shot_to_pre = vax_hpv
+Have_you_been_vaccinated_for_CO = vax_covid
+How_many_COVID_19_shots_have_yo = vax_covid_shots
+How_worried_are_you_about_getti = risk_worry
+Do_you_think_that_being_overwei = risk_overweight
+Do_you_think_that_drinking_alco = risk_alcohol
+Do_you_have_health_insurance_ = health_coverage
+Do_you_have_a_personal_doctor_o = health_doctor
+Have_you_ever_been_diagnosed_wi = history_diagnosis
+Have_any_of_your_biological__bl = history_family
+Where_would_you_go_to_FIRST_to = info_cancer_first
+Which_of_these_do_you_MOST_TRUS = info_cancer_trust
+How_much_do_you_know_about_clin = ct_knowledge
+Have_you_ever_been_in_a_clinica = ct_participate
+VAR92 = info_ct_first 
+VAR93 = info_ct_trust
+How_many_months_a_year_do_you_l = dem_residence
+What_sex_were_you_assigned_at_b = dem_sex
+Are_you_transgender_ = dem_tgender
+Are_you_part_of_the_LGBTQ__comm = dem_lgbt
+Are_you_of_Hispanic_or_Latino_ = dem_hispanic
+Which_of_the_following_do_you_i = dem_hispanic_spec
+Were_you_born_in_the_US_ = dem_birth
+What_is_your_marital_status_ = dem_marital
+What_is_the_highest_grade_or_ye = dem_edu
+What_is_your_employment_status_ = dem_employ
+How_many_people_live_in_your_ho = dem_household
+How_many_children_under_the_age = dem_household_u18
+What_is_the_total_combined_inco = dem_income1
+Which_one_of_these_comes_closes =dem_income2
+What_is_your_race__You_can_sele = White 
+VAR108 = Black
+VAR109 = AmerIndian 
+VAR110 = Asian 
+VAR111 = Hawaiian 
+VAR112 = Other
+VAR113 = Prefer_Not 
+How_often_do_you_use_an_electro = behav_ecig_freq
+Would_any_of_these_affect_your = facillitator_save_life
+VAR77 = facillitator_help_others
+VAR78 = facillitator_paid
+VAR79 = facillitator_new_trtmnt
+VAR80 = facillitator_doctor_encrg
+VAR81 = facillitator_fmly_encrg
+VAR82 = facillitator_other
+VAR83 = facillitator_idk
+Would_any_of_these_stop_you_fro = barrier_no_insurance
+VAR85 = barrier_no_transport
+VAR86 = barrier_no_pto
+VAR87 = barrier_no_pay
+VAR88 = barrier_no_support
+VAR89 = barrier_fear
+VAR90 = barrier_other
+VAR91 = barrier_IDK
+please_specify = dem_tgender_spec
+Do_you_now_smoke_cigarettes_ = behav_smoking_current
+What_gender_do_you_identify_as_ = gen_man
+VAR118 = gen_woman
+VAR119 = gen_fluid
+VAR120 = gen_intersex
+VAR121 = gen_non_binary
+VAR122 = gen_trans_man
+VAR123 = gen_trans_woman
+VAR124 = gen_not_listed
+VAR125 = gen_NA;
+label 
+What_is_your_age_ = 'What is your age?' 
+Please_select_your_county_of_re = 'What is your county of residence?'
+In_general__how_is_your_health_ = 'In general, how is your health?'
+Diabetes_or_high_blood_sugar_ = 'Diabetes or high blood sugar?'
+High_blood_pressure_or_hyperten = 'High blood pressure or hypertension?'
+A_heart_condition_such_as_heart = 'A heart condition such as heart attack, angina, or heart failure?'
+A_breathing_problem_such_as_lun = 'A breathing problem such as lung disease asthma, or emphysema?'
+A_mental_health_problem_such_as =  'A mental health problem such as depression or anxiety?'
+To_your_knowledge__have_you_eve = 'To your knowledge, have you ever had COVID-19?'
+To_your_knowledge__are_you_now = 'To your knowledge, are you now pregnant?'
+About_how_much_do_you_weigh__in = 'About how much do you weigh (in pounds)?'
+About_how_tall_are_you_ = 'About how tall are you (feet)?'
+VAR15 = 'About how tall are you? (Inches)'
+How_many_days_a_week_do_you_exe = 'How many days a week do you exercise hard enough to sweat?'
+On_the_days_you_exercise__do_yo = 'On the days you exercise, do you exercise at least 20 minutes? '
+How_many_hours_a_day_do_you_spe = 'How many hours a day do you spend watching television?'
+How_many_hours_a_week_do_you_sp = 'How many hours a week do you spend on the internet for personal use? '
+Do_you_usually_try_new_products = 'Do you usually try new products before other people do? '
+Have_you_ever_smoked_cigarettes = 'Have you ever smoked cigarettes? '
+Have_you_smoked_at_least_100_ci = 'Have you smoked at least 100 cigarettes in your entire life?'       
+How_many_days_a_week_do_you_smo = 'How many days a week do you smoke cigarettes?'
+On_the_days_you_smoke__how_many = 'On the days you smoke, how many cigarettes do you usually smoke?  '
+Have_you_ever_used_an_electroni = 'Have you ever used an electronic cigarette (like a vape pen)? '
+How_many_days_a_week_do_you_dri = 'How many days a week do you drink at least one alcoholic beverage? '
+On_the_days_that_you_drink__how = 'On the days that you drink, how many alcoholic beverages do you have?'
+In_the_past_year__how_many_time = 'In the past year, how many times have you had a sunburn? '
+When_you_go_outside_for_more_th = 'When you go outside for more than one hour, how often do you protect yourself from the sun? '
+Have_you_ever_had_your_skin_exa = 'Have you ever had your skin examined for signs of skin cancer? '
+In_the_past_year__have_you_had = 'In the past year, have you had a test to check for lung cancer? '
+Have_you_ever_had_a_test_to_che = 'Have you ever had a test to check for colon cancer? '
+When_was_your_last_Pap_test_to = 'When was your last Pap test to check for cervical cancer?'  
+When_was_your_last_mammogram__x = 'When was your last mammogram (x-ray or ultrasound) to check for breast cancer?'
+Have_you_ever_had_a_shot_to_pre = 'Have you ever had a shot to prevent HPV (Human Papillomavirus)?'
+Have_you_been_vaccinated_for_CO = 'Have you been vaccinated for COVID-19? '
+How_many_COVID_19_shots_have_yo = 'How many COVID-19 shots have you had?'
+How_worried_are_you_about_getti = 'How worried are you about getting cancer? '
+Do_you_think_that_being_overwei = 'Do you think that being overweight or obese makes you more likely to get cancer?'
+Do_you_think_that_drinking_alco = 'Do you think that drinking alcoholic beverages makes you more likely to get cancer?'
+Do_you_have_health_insurance_ = 'Do you have health insurance? '
+Do_you_have_a_personal_doctor_o = 'Do you have a personal doctor or health care provider? '
+Have_you_ever_been_diagnosed_wi = 'Have you ever been diagnosed with cancer? '
+Have_any_of_your_biological__bl = 'Have any of your biological (blood) relatives ever had cancer? '
+Where_would_you_go_to_FIRST_to = 'Where would you go to FIRST to get information about cancer? '
+Which_of_these_do_you_MOST_TRUS = 'Which of these do you MOST TRUST for cancer information?'
+How_much_do_you_know_about_clin = 'How much do you know about clinical trials? '
+Have_you_ever_been_in_a_clinica = 'Have you ever been in a clinical trial? '
+VAR92 = 'Where would you go to FIRST get information about clinical trials?' 
+VAR93 = 'Which of these do you MOST TRUST for information on clinical trials?'
+How_many_months_a_year_do_you_l = 'How many months a year do you live in Arizona? '
+What_sex_were_you_assigned_at_b = 'What sex were you assigned at birth? '
+Are_you_transgender_ = 'Are you transgender?'
+Are_you_part_of_the_LGBTQ__comm = 'Are you part of the LGTBQ+ community?'
+Are_you_of_Hispanic_or_Latino_ = 'Are you Hispanic or Latino? '
+Which_of_the_following_do_you_i = 'Which of the following do you identify with? (Hispanic/Latino = Yes)'
+Were_you_born_in_the_US_ = 'Were you born in the US?'
+What_is_your_marital_status_ = 'What is your marital status?'
+What_is_the_highest_grade_or_ye = 'What is the highest grade or year of school you completed?'
+What_is_your_employment_status_ = 'What is your employment status? '
+How_many_people_live_in_your_ho = 'How many people live in your household? '
+How_many_children_under_the_age = 'How many children under the age of 18 live in your household? '
+What_is_the_total_combined_inco = 'What is the total combined income of all members of your household during the past 12 months?'
+Which_one_of_these_comes_closes = 'Which one of these comes closest to your feelings about your household’s income?'
+What_is_your_race__You_can_sele = 'Race = White' 
+VAR108 = 'Race = Black/African American'
+VAR109 = 'Race = American Indian' 
+VAR110 = 'Race = Asian' 
+VAR111 = 'Race = Hawaiian' 
+VAR112 = 'Race = Other'
+VAR113 = 'Race = Prefer not to answer' 
+How_often_do_you_use_an_electro = 'How often do you use an electronic cigarette? '
+Would_any_of_these_affect_your = 'Would any of these affect...clinical trial? = Save my life'
+VAR80 = 'Would any of these affect...clinical trial? = Help others'
+VAR81 = 'Would any of these affect...clinical trial? = Get Paid'
+VAR82 = 'Would any of these affect...clinical trial? = Try new treatment'
+VAR83 = 'Would any of these affect...clinical trial? = Doctor Encouragement'
+VAR84 = 'Would any of these affect...clinical trial? = Family encouragement'
+VAR85 = 'Would any of these affect...clinical trial? = other'
+VAR86 = 'Would any of these affect...clinical trial? = I dont know'
+Would_any_of_these_stop_you_fro = 'Would any of these stop... clinical trial? = No insurance'
+VAR89 = 'Would any of these stop... clinical trial? = No transportation'
+VAR90 = 'Would any of these stop... clinical trial? = No paid time off'
+VAR91 = 'Would any of these stop... clinical trial? = Not paid'
+VAR92 = 'Would any of these stop... clinical trial? = No support from friends/family'
+VAR93 = 'Would any of these stop... clinical trial? = Fear'
+VAR94 = 'Would any of these stop... clinical trial? = Other'
+VAR95 = 'Would any of these stop... clinical trial? = I dont know'
+please_specify = 'Specific transgender'
+Do_you_now_smoke_cigarettes_ = 'Do you now smoke cigarettes? '
+What_gender_do_you_identify_as_ = 'Gender = Man'
+VAR127 = 'Gender = Woman'
+VAR128 = 'Gender = Gender fluid/Gender queer'
+VAR129 = 'Gender = Intersex'
+VAR130 = 'Gender = Non-Binary'
+VAR131 = 'Gender = Transgender man'
+VAR132 = 'Gender = Trandsgender woman'
+VAR133 = 'Gender = Not listed'
+VAR134 = 'Gender = Prefer not to answer';
+if please_select_your_county_of_re IN('Coch', 'Pima', 'Pina', 'Sant', 'Yuma') then output;
+else delete;
+length race $50;
+If  What_is_your_race__You_can_sele = 'Checked' then race = 'White';*'White';
+If VAR108 = 'Checked' then race = 'Black';*'Black';
+If VAR109 = 'Checked' then race = 'American Indian';*'Indian';
+If VAR110 = 'Checked' then race = 'Asian';*'Asian';
+if VAR111 = 'Checked' then race = 'Hawaiian';*'Hawaiian';
+If VAR112 = 'Checked' then race = 'Other';*'Other';
+If VAR113 = 'Checked' then race = 'Prefer not to answer';
+race_ID = 0;
+array race_array {7} What_is_your_race__You_can_sele VAR102-VAR107;
+do i=1 to 7;
+if race_array(i) = 'Checked' then race_ID+1;
+else race_ID +0;
+end;
+If race_ID > 1 then race = 'Mixed Race';
+Else if race_ID = 0 then race = 'Prefer not to answer';
+
+
+If What_gender_do_you_identify_as_ = 'Checked' then gender = 'Man';
+If VAR127 = 'Checked' then gender = 'Woman';
+If VAR128 = 'Checked' then gender = 'Gender fluid/gender queer';
+If VAR129 = 'Checked' then gender = 'Intersex';
+IF VAR130 = 'Checked' then gender = 'Non-Binary';
+IF VAR131 = 'Checked' then gender = 'Transgender Man';
+IF VAR132 = 'Checked' then gender =  'Transgender Woman';
+IF VAR133 = 'Checked' then gender = 'Not Listed';
+IF VAR134 = 'Checked' then gender = 'Prefer Not to Answer';
+gender_id = 0;
+array gender_array {9} What_gender_do_you_identify_as_ VAR118-VAR125;
+do k=1 to 9;
+if gender_array(k)= 'Checked' then gender_ID +1;
+else gender_ID + 0;
+end;
+
+If gender_ID > 1 then gender= 'Multi-Gender, see Checked';
+else if gender_id = 1 then gender = gender;
+
+run;
+
+
+******************************
+
+Following code will be used for
+final output. Creates cancer 
+categories,colon screening types
+and calculates BMI.
+
+******************************;
+
+
+
+data casa.inuse
+(drop = which_test_have_you_had_to_test VAR37 prefer_not what_type_of_cancer_did_you_hav
+race_id i cancer_id hgt_ft hgt_ft_in hgt_total_in hgt_m weight_kg j var50-var72 White Black AmerIndian 
+Asian Hawaiian Other k gender_ID);
+set int1;
+label 
+BMI = 'BMI number'
+BMI_cat = 'BMI category'
+cancer = 'What type of cancer did you have?'
+gender = 'What gender do you identify as?'
+race = 'What is your race?';
+length cancer $50;
+If What_type_of_cancer_did_you_hav = 'Checked' then cancer = 'Bladder';
+If VAR50 = 'Checked' then cancer = 'Bone';
+If VAR51 = 'Checked' then cancer = 'Breast';
+If VAR52 = 'Checked' then cancer = 'Cervical';
+If VAR53 = 'Checked' then cancer = 'Colon' ;
+If VAR54 = 'Checked' then cancer = 'Endometrial';
+If VAR55 = 'Checked' then cancer = 'Head/Neck';
+If VAR56 = 'Checked' then cancer = 'Leukemia';
+If VAR57 = 'Checked' then cancer = 'Liver';
+If VAR58 = 'Checked' then cancer = 'Lung';
+If VAR59 = 'Checked' then cancer = 'Lymphoma (Hodgkins)';
+If VAR60 = 'Checked' then cancer = 'Lymphoma (Non-Hodgkins)';
+If VAR61 = 'Checked' then cancer = 'Melanoma';
+If VAR62 = 'Checked' then cancer = 'Oral';
+If VAR63 = 'Checked' then cancer = 'Ovarian';
+If VAR64 = 'Checked' then cancer = 'Pancreative';
+If VAR65 = 'Checked' then cancer = 'Pharyngeal';
+If VAR66 = 'Checked' then cancer = 'Prostate';
+If VAR67 = 'Checked' then cancer = 'Rectal';
+If VAR68 = 'Checked' then cancer = 'Renal';
+If VAR69 = 'Checked' then cancer = 'Skin (non-melanoma)';
+If VAR70 = 'Checked' then cancer = 'Stomach';
+If VAR71 = 'Checked' then cancer = 'Dont know/Unsure';
+If VAR72 = 'Checked' then cancer = 'Other';
+
+cancer_ID = 0;
+array cancer_array {24} What_type_of_cancer_did_you_hav VAR48-VAR70;
+do j=1 to 24;
+if cancer_array(j) = 'Checked' then cancer_ID+1;
+else if cancer_array(j) = 'Unchecked' then cancer_ID +0;
+end;
+
+if cancer_ID > 1 then cancer = 'Multiple Cancers';
+else if cancer_ID <=1 then cancer = cancer;
+
+length colon_test $57;
+
+If Which_test_have_you_had_to_test = 'Checked' then colon_test = 'Colonoscopy';
+If VAR37 = 'Checked' then colon_test = 'Stool blood Test';
+If Which_test_have_you_had_to_test = 'Checked' and VAR37 = 'Checked' then colon_test = 'Both Colonoscopy and Stool Blood test';
+label colon_test = 'Have you ever had a test to check for colon cancer?';
+
+if int(status_hgt_ft) ^= status_hgt_ft then hgt_ft = .;
+else hgt_ft = status_hgt_ft;
+if hgt_ft > 7 then hgt_ft = .;
+
+if status_hgt_in >= 12 then status_hgt_in = .;
+
+hgt_ft_in = hgt_ft * 12;
+hgt_total_in = sum(hgt_ft_in,status_hgt_in);
+if hgt_ft_in = . or status_hgt_in = . then hgt_total_in = .;
+
+hgt_m = 0.0254*hgt_total_in;
+weight_kg = 0.453592*status_wgt;
+
+BMI = weight_kg / hgt_m**2;
+
+if 0 < BMI < 18.5 then BMI_Cat = 'Underweight';
+else if 18.5 <= BMI < 25 then BMI_Cat = 'Normal Weight';
+else if 25 <= BMI < 30 then BMI_Cat = 'Overweight';
+else if BMI >= 30 then BMI_Cat = 'Obese';
+
+run;
+
+proc contents data=casa.inuse order=varnum;
+
+
+data test;
+set casa.inuse;
+run;
+
+proc freq data=test;
+tables vax_hpv*gender;
+run;
+**************************************************
+Use this code to create an excel output of the 
+clean data set. Change the outfile location to
+your local system
+
+*********Creating Export File**********************;
+
+proc export data=casa.inuse outfile = '/home/u59282643/Cancer Center/NEWEST_CASA_DATA.xlsx'
+DBMS= XLSX REPLACE;
+RUN;
+
+
