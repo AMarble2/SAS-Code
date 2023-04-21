@@ -1,0 +1,440 @@
+
+*Sensitivity analysis, no imputation;
+
+data no_imp;
+set bios576c.mhows_scores;
+if patient = 955005 then delete;
+if patient = 365818 then delete;
+if MHOWS_1 = 0 then MHOWS_1 = .;
+if MHOWS_2 = 0 then MHOWS_2 = .;
+if MHOWS_3 = 0 then MHOWS_3 = .;
+if MHOWS_4 = 0 then MHOWS_4 = .;
+if MHOWS_5 = 0 then MHOWS_5 = .;
+if MHOWS_6 = 0 then MHOWS_6 = .;
+if MHOWS_7 = 0 then MHOWS_7 = .;
+if MHOWS_8 = 0 then MHOWS_8 = .;
+if MHOWS_9 = 0 then MHOWS_9 = .;
+if MHOWS_10 = 0 then MHOWS_10 = .;
+run;
+
+data no_imp_long;
+set bios576c.mhows_scores_long;
+if treat = 'LOFEXIDINE' then treat_use = 1;
+else if treat = 'PLACEBO' then treat_use = 0;
+if patient = 955005 then delete;
+if patient = 365818 then delete;
+if MHOWS = 0 then MHOWS = .;
+run;
+
+proc freq data = no_imp;
+tables treat;
+run;
+
+proc sort data=no_imp;
+by treat;
+run;
+
+*Unadjusted means;
+proc means data=no_imp n mean std;
+var MHOWS_:;
+by treat;
+run;
+
+proc corr data=no_imp cov noprob nosimple;
+var MHOWS_:;
+run;
+
+*Mixed model #2 (MEANS/MMRM); 
+
+proc mixed data=no_imp_long plots = all;
+class time (ref='3');
+model MHOWS = time treat_use time*treat_use / solution;
+repeated time/subject= PATIENT type=vc;
+estimate 'ctl, time 3' int 1 time 0 0 1 0 0 0 0 0 0 / e cl;
+estimate 'trt, time 3' int 1 treat_use 1 time 0 0 1 0 0 0 0 0 0 time*treat_use 0 0 1 0 0 0 0 0 0;
+estimate 'trt eff time 3' treat_use 1 time*treat_use 0 0 1 0 0 0 0 0 0/e cl;
+estimate 'ctl, time 4' int 1 time 0 0 0 1 0 0 0 0 0 / e cl;
+estimate 'trt, time 4' int 1 treat_use 1 time 0 0 0 1 0 0 0 0 0  time*treat_use 0 0 0 1 0 0 0 0 0 ;
+estimate 'trt eff time 4' treat_use 1 time*treat_use 0 0 0 1 0 0 0 0 0/e cl;
+estimate 'ctl, time 5' int 1 time 0 0 0 0 1 0 0 0 0 / e cl;
+estimate 'trt, time 5' int 1 treat_use 1 time 0 0 0 0 1 0 0 0 0 time*treat_use 0 0 0 0 1 0 0 0 0;
+estimate 'trt eff time 5' treat_use 1 time*treat_use 0 0 0 0 1 0 0 0 0/e cl;
+estimate 'ctl, time 6' int 1 time 0 0 0 0 0 1 0 0 0 / e cl;
+estimate 'trt, time 6' int 1 treat_use 1 time 0 0 0 0 0 1 0 0 0 time*treat_use 0 0 0 0 0 1 0 0 0;
+estimate 'trt eff time 6' treat_use 1 time*treat_use 0 0 0 0 0 1 0 0 0/e cl;
+estimate 'ctl, time 7' int 1 time 0 0 0 0 0 0 1 0 0 / e cl;
+estimate 'trt, time 7' int 1 treat_use 1 time 0 0 0 0 0 0 1 0 0 time*treat_use 0 0 0 0 0 0 1 0 0;
+estimate 'trt eff time 7' treat_use 1 time*treat_use 0 0 0 0 0 0 1 0 0/e cl;
+estimate 'ctl, time 8' int 1 time 0 0 0 0 0 0 0 1 0 / e cl;
+estimate 'trt, time 8' int 1 treat_use 1 time 0 0 0 0 0 0 0 1 0 time*treat_use 0 0 0 0 0 0 0 1 0;
+estimate 'trt eff time 8' treat_use 1 time*treat_use 0 0 0 0 0 0 0 1 0/e cl; 
+run;
+
+ 
+*Mixed model #1: LMM;
+ 
+proc mixed data=no_imp_long plots=all;
+model MHOWS = time treat_use time*treat_use / solution;
+random int time/sub = PATIENT type = un;
+estimate 'ctl, time 3' int 1 time 3 / e cl;
+estimate 'trt, time 3' int 1 treat_use 1 time 3 time*treat_use 3;
+estimate 'trt eff time 3' treat_use 1 time*treat_use 3/e cl;
+estimate 'ctl, time 4' int 1 time 4;
+estimate 'trt, time 4' int 1 treat_use 1 time 4 time*treat_use 4;
+estimate 'trt eff time 4' treat_use 1 time*treat_use 4/e cl;
+estimate 'ctl, time 5' int 1 time 5;
+estimate 'trt, time 5' int 1 treat_use 1 time 5 time*treat_use 5;
+estimate 'trt eff time 5' treat_use 1 time*treat_use 5/e cl;
+estimate 'ctl, time 6' int 1 time 6;
+estimate 'trt, time 6' int 1 treat_use 1 time 6 time*treat_use 6;
+estimate 'trt eff time 6' treat_use 1 time*treat_use 6/e cl;
+estimate 'ctl, time 7' int 1 time 7;
+estimate 'trt, time 7' int 1 treat_use 1 time 7 time*treat_use 7;
+estimate 'trt eff time 7' treat_use 1 time*treat_use 7/e cl;
+estimate 'ctl, time 8' int 1 time 8;
+estimate 'trt, time 8' int 1 treat_use 1 time 8 time*treat_use 8;
+estimate 'trt eff time 8' treat_use 1 time*treat_use 8/e cl;
+estimate 'ctl, time 9' int 1 time 9;
+estimate 'trt, time 9' int 1 treat_use 1 time 9 time*treat_use 9;
+estimate 'trt eff time 9' treat_use 1 time*treat_use 9/e cl;
+estimate 'ctl, time 10' int 1 time 10;
+estimate 'trt, time 10' int 1 treat_use 1 time 10 time*treat_use 10;
+estimate 'trt eff time 10' treat_use 1 time*treat_use 10/e cl;
+run;
+
+proc sgplot data = no_imp_long;
+vline time/response=MHOWS stat=mean group=treat
+limitstat=clm;
+run;
+
+******************************************************************************************** 
+                    
+                    
+                    LOCF
+
+
+******************************************************************************************** ;
+
+proc sort data= bios576c.mhows_full;
+by treat;
+run;
+
+proc mi data= bios576c.mhows_full nimpute=0 ;
+var Mhows_:;
+ods select misspattern;
+run;
+
+data carry_forward;
+set bios576c.mhows_full;
+MHOWS_Count = 0;
+array mhows_array {*} MHOWS_:;
+do i = 1 to 9;
+if MHOWS_array{i} ne . then MHOWS_Count + 1;
+else MHOWS_Count = MHOWS_Count;
+end;
+
+if (MHOWS_1 ne . and MHOWS_2 ne . and MHOWS_3 ne .) and (MHOWS_4 = . and MHOWS_5 = . and MHOWS_6 = .) then
+delete;
+
+IF MHOWS_1 ne . and MHOWS_2 = . then MHOWS_2 = MHOWS_1;
+
+IF MHOWS_1 ne . and MHOWS_2 ne . and MHOWS_3 = . then MHOWS_3 = MHOWS_2;
+
+If MHOWS_1 = . then MHOWS_1 = 0; *REMEMBER TO CHANGE THIS FOR ANALYSIS;
+
+
+MHOWS_after_Count = 0;
+array mhows_after_array {*} MHOWS_:;
+do i = 1 to 9;
+if MHOWS_after_array{i} ne . then MHOWS_after_Count + 1;
+else MHOWS_after_Count = MHOWS_after_Count;
+end;
+
+If MHOWS_after_count = 8 then MHOWS_9 = MHOWS_8;
+
+If MHOWS_after_count = 7 then MHOWS_8 = MHOWS_7;
+If MHOWS_after_count = 7 then MHOWS_9 = MHOWS_7;
+
+If MHOWS_after_count = 6 then MHOWS_7 = MHOWS_6;
+IF MHOWS_after_count = 6 then MHOWS_8 = MHOWS_6;
+IF MHOWS_after_count = 6 then MHOWS_9 = MHOWS_6;
+
+IF MHOWS_after_count = 5 then MHOWS_6 = MHOWS_5;
+IF MHOWS_after_count = 5 then MHOWS_7 = MHOWS_5;
+IF MHOWS_after_count = 5 then MHOWS_8 = MHOWS_5;
+IF MHOWS_after_count = 5 then MHOWS_9 = MHOWS_5;
+
+IF MHOWS_after_count = 4 then MHOWS_5 = MHOWS_4;
+IF MHOWS_after_count = 4 then MHOWS_6 = MHOWS_4;
+IF MHOWS_after_count = 4 then MHOWS_7 = MHOWS_4;
+IF MHOWS_after_count = 4 then MHOWS_8 = MHOWS_4;
+IF MHOWS_after_count = 4 then MHOWS_9 = MHOWS_4;
+
+run;
+
+proc mi data= carry_forward nimpute=0 ;
+var Mhows_:;
+ods select misspattern;
+run; *Shows all data present; 
+
+data carry_forward_scores (keep = PATIENT age treat gender educ_yr depression anxiety IV days_use_30d 
+oral_nasal_smoke smoke study_day_drop drop_reason MHOWS_1 MHOWS_2 MHOWS_3 MHOWS_4 MHOWS_5 MHOWS_6 MHOWS_7
+MHOWS_8 MHOWS_9);
+set carry_forward;
+run;
+
+proc sort data=carry_forward_scores;
+by patient age treat gender educ_yr depression anxiety IV days_use_30d 
+oral_nasal_smoke smoke study_day_drop drop_reason  ;
+run;
+
+proc transpose data=carry_forward_scores out=carry_forward_scores_long (rename = (col1 = MHOWS));
+by patient age treat gender educ_yr depression anxiety IV days_use_30d 
+oral_nasal_smoke smoke study_day_drop drop_reason ;
+run;
+
+data carry_forward_scores_long (drop = _NAME_) replace;
+set carry_forward_scores_long;
+if _NAME_ = 'MHOWS_1' then time = 1;
+if _NAME_ = 'MHOWS_2' then time = 2;
+if _NAME_ = 'MHOWS_3' then time = 3;
+if _NAME_ = 'MHOWS_4' then time = 4;
+if _NAME_ = 'MHOWS_5' then time = 5;
+if _NAME_ = 'MHOWS_6' then time = 6;
+if _NAME_ = 'MHOWS_7' then time = 7;
+if _NAME_ = 'MHOWS_8' then time = 8;
+if _NAME_ = 'MHOWS_9' then time = 9;
+
+if treat = 'LOFEXIDINE' then treat_use = 1;
+else if treat = 'PLACEBO' then treat_use = 0;
+run;
+
+*Unadjusted means;
+
+data carry_forward_scores_analysis;
+set carry_forward_scores;
+if MHOWS_1 = 0 then MHOWS_1 = .;
+run;
+
+proc sort data=carry_forward_scores_analysis;
+by treat;
+run;
+
+proc means data=carry_forward_scores_analysis;
+var MHOWS_:;
+by treat;
+run;
+
+proc sgplot data = carry_forward_scores_long;
+vline time/response=MHOWS stat=mean group=treat
+limitstat=clm;
+where time IN(3 4 5 6 7 8);
+run;
+
+/* Model 1 */
+proc mixed data= carry_forward_scores_long plots=all;
+model MHOWS = time treat_use time*treat_use / solution;
+random int/sub = PATIENT;
+estimate 'ctl, time 3' int 1 time 3 / e cl;
+estimate 'trt, time 3' int 1 treat_use 1 time 3 time*treat_use 3;
+estimate 'trt eff time 3' treat_use 1 time*treat_use 3/e cl;
+estimate 'ctl, time 4' int 1 time 4;
+estimate 'trt, time 4' int 1 treat_use 1 time 4 time*treat_use 4;
+estimate 'trt eff time 4' treat_use 1 time*treat_use 4/e cl;
+estimate 'ctl, time 5' int 1 time 5;
+estimate 'trt, time 5' int 1 treat_use 1 time 5 time*treat_use 5;
+estimate 'trt eff time 5' treat_use 1 time*treat_use 5/e cl;
+estimate 'ctl, time 6' int 1 time 6;
+estimate 'trt, time 6' int 1 treat_use 1 time 6 time*treat_use 6;
+estimate 'trt eff time 6' treat_use 1 time*treat_use 6/e cl;
+estimate 'ctl, time 7' int 1 time 7;
+estimate 'trt, time 7' int 1 treat_use 1 time 7 time*treat_use 7;
+estimate 'trt eff time 7' treat_use 1 time*treat_use 7/e cl;
+estimate 'ctl, time 8' int 1 time 8;
+estimate 'trt, time 8' int 1 treat_use 1 time 8 time*treat_use 8;
+estimate 'trt eff time 8' treat_use 1 time*treat_use 8/e cl;
+run;
+
+/* Model 2: MEANS */
+
+proc mixed data= carry_forward_scores_long;
+class time;
+model MHOWS = time treat_use time*treat_use;
+random int /subject=  PATIENT type=un;
+estimate 'ctl, time 3' int 1 time 0 0 1 0 0 0 0 0 0 / e cl;
+estimate 'trt, time 3' int 1 treat_use 1 time 0 0 1 0 0 0 0 0 0 time*treat_use 0 0 1 0 0 0 0 0 0;
+estimate 'trt eff time 3' treat_use 1 time*treat_use 0 0 1 0 0 0 0 0 0/e cl;
+estimate 'ctl, time 4' int 1 time 0 0 0 1 0 0 0 0 0 / e cl;
+estimate 'trt, time 4' int 1 treat_use 1 time 0 0 0 1 0 0 0 0 0  time*treat_use 0 0 0 1 0 0 0 0 0 ;
+estimate 'trt eff time 4' treat_use 1 time*treat_use 0 0 0 1 0 0 0 0 0/e cl;
+estimate 'ctl, time 5' int 1 time 0 0 0 0 1 0 0 0 0 / e cl;
+estimate 'trt, time 5' int 1 treat_use 1 time 0 0 0 0 1 0 0 0 0 time*treat_use 0 0 0 0 1 0 0 0 0;
+estimate 'trt eff time 5' treat_use 1 time*treat_use 0 0 0 0 1 0 0 0 0/e cl;
+estimate 'ctl, time 6' int 1 time 0 0 0 0 0 1 0 0 0 / e cl;
+estimate 'trt, time 6' int 1 treat_use 1 time 0 0 0 0 0 1 0 0 0 time*treat_use 0 0 0 0 0 1 0 0 0;
+estimate 'trt eff time 6' treat_use 1 time*treat_use 0 0 0 0 0 1 0 0 0/e cl;
+estimate 'ctl, time 7' int 1 time 0 0 0 0 0 0 1 0 0 / e cl;
+estimate 'trt, time 7' int 1 treat_use 1 time 0 0 0 0 0 0 1 0 0 time*treat_use 0 0 0 0 0 0 1 0 0;
+estimate 'trt eff time 7' treat_use 1 time*treat_use 0 0 0 0 0 0 1 0 0/e cl;
+estimate 'ctl, time 8' int 1 time 0 0 0 0 0 0 0 1 0 / e cl;
+estimate 'trt, time 8' int 1 treat_use 1 time 0 0 0 0 0 0 0 1 0 time*treat_use 0 0 0 0 0 0 0 1 0;
+estimate 'trt eff time 8' treat_use 1 time*treat_use 0 0 0 0 0 0 0 1 0/e cl; 
+run;
+
+**********************************************************************
+
+Checking difference in LOCF at covariate level
+
+********************************************************************;
+data impute_try (drop = Q1_score: Q2_score: Q3_score: Q4_score: Q5_score: Q6_score: Q7_score: Q8_score: 
+emesis_score: score_: MHOWS_: i emesis_count:);
+set bios576c.mhows_full;
+run;
+
+proc sort data = impute_try;
+by treat;
+run;
+
+*IMPUTING MHOWS scores only;
+proc MI data = bios576c.mhows_full out = imputed_score_try nimpute = 20 seed= 32462346;
+fcs reg(MHOWS_: / details);
+var MHOWS_: ;
+run;
+
+
+proc sort data=imputed_score_try;
+by treat;
+run;
+
+proc means data=imputed_score_try N MEAN STD;
+var MHOWS_:;
+by treat;
+run;
+
+data imputed_score_try_2 (keep = _IMPUTATION_ PATIENT age treat gender educ_yr depression anxiety IV days_use_30d 
+oral_nasal_smoke smoke study_day_drop drop_reason MHOWS_1 MHOWS_2 MHOWS_3 MHOWS_4 MHOWS_5 MHOWS_6 MHOWS_7
+MHOWS_8 MHOWS_9 MHOWS_10 treat_use);
+set imputed_score_try;
+if treat = 'PLACEBO' then treat_use = 0;
+else if treat = 'LOFEXIDINE' then treat_use =1;
+if patient = 955005 then delete;
+if patient = 365818 then delete;
+run;
+
+proc freq data=imputed_score_try_2;
+tables treat;
+where _Imputation_ = 1;
+run;
+
+proc sort data=imputed_score_try_2;
+by _IMPUTATION_  patient age treat gender educ_yr depression anxiety IV days_use_30d 
+oral_nasal_smoke smoke study_day_drop drop_reason  ;
+run;
+
+proc transpose data=imputed_score_try_2 out=imputed_long (rename = (col1 = MHOWS));
+by _IMPUTATION_ patient age treat gender educ_yr depression anxiety IV days_use_30d 
+oral_nasal_smoke smoke study_day_drop drop_reason ;
+run;
+
+data imputed_long (drop = _NAME_) replace;
+set imputed_long;
+if _NAME_ = 'MHOWS_1' then time = 1;
+if _NAME_ = 'MHOWS_2' then time = 2;
+if _NAME_ = 'MHOWS_3' then time = 3;
+if _NAME_ = 'MHOWS_4' then time = 4;
+if _NAME_ = 'MHOWS_5' then time = 5;
+if _NAME_ = 'MHOWS_6' then time = 6;
+if _NAME_ = 'MHOWS_7' then time = 7;
+if _NAME_ = 'MHOWS_8' then time = 8;
+if _NAME_ = 'MHOWS_9' then time = 9;
+if _Name_ = 'MHOWS_10' then time = 10;
+if patient = 955005 then delete;
+if patient = 365818 then delete;
+if treat = 'LOFEXIDINE' then treat_use = 1;
+else if treat = 'PLACEBO' then treat_use = 0;
+run;
+
+/*Figure 1*/
+
+*Complete case means;
+proc sgplot data = no_imp_long;
+vline time/response=MHOWS stat=mean group=treat
+limitstat=clm;
+xaxis label = 'Day';
+run;
+*Imputed Means;
+proc sgplot data = imputed_long;
+vline time/response=MHOWS stat=mean group=treat
+limitstat=clm;
+xaxis label = 'Day';
+run;
+
+
+PROC sort data=imputed_score_try_2;
+by _IMPUTATION_;
+run;
+
+proc glm data = imputed_score_try_2 plots=none;
+   model MHOWS_3 = treat_use;
+   by _imputation_;
+   ods output ParameterEstimates=ests3;
+run;
+
+proc mianalyze parms=ests3;
+   modeleffects treat_use;
+run;
+
+proc glm data = imputed_score_try_2 plots=none;
+   model MHOWS_4 = treat_use;
+   by _imputation_;
+   ods output ParameterEstimates= ests4;
+run;
+
+proc mianalyze parms=ests4;
+   modeleffects treat_use;
+run;
+
+proc glm data = imputed_score_try_2 plots=none;
+   model MHOWS_5 = treat_use;
+   by _imputation_;
+   ods output ParameterEstimates=ests5;
+run;
+
+proc mianalyze parms=ests5;
+   modeleffects treat_use;
+run;
+
+proc glm data = imputed_score_try_2 plots=none;
+   model MHOWS_6 = treat_use;
+   by _imputation_;
+   ods output ParameterEstimates=ests6;
+run;
+
+proc mianalyze parms=ests6;
+   modeleffects treat_use;
+run;
+
+proc glm data = imputed_score_try_2 plots=none;
+   model MHOWS_7 = treat_use;
+   by _imputation_;
+   ods output ParameterEstimates=ests7;
+run;
+
+proc mianalyze parms=ests7;
+   modeleffects treat_use;
+run;
+
+
+proc glm data = imputed_score_try_2 plots=none;
+   model MHOWS_8 = treat_use;
+   by _imputation_;
+   ods output ParameterEstimates=ests8;
+run;
+
+proc mianalyze parms=ests8;
+   modeleffects treat_use;
+run;
+
+
+
+
