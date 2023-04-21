@@ -1,0 +1,245 @@
+
+data diff;
+set bios576c.oasis;
+run;
+
+proc sort data=diff;
+by Subject_Id;
+run;
+
+/*Secondary Analysis*/
+
+data diff (keep = subject_id mr_delay nWBV);
+set diff;
+by subject_id;
+last_id = last.subject_id;
+if last_id = 1 then output diff;
+run;
+
+data diff;
+set diff;
+rename mr_delay = mr_delay_last
+	   nWBV = nWBV_last;
+run;
+
+proc sort data=bios576c.oasis_wide;
+by subject_id;
+run;
+
+proc sort data=diff;
+by subject_id;
+run;
+
+data bios576c.oasis_wide;
+merge bios576c.oasis_wide diff;
+by subject_id;
+run;
+
+data average_loss;
+set bios576c.oasis_wide;
+years = (mr_delay_last)/365;
+loss_per_year = (nWBV_last - nWBV)/years;
+if group = "Nondemented" then group_use = 0;
+else if group = "Demented" then group_use = 1;
+else group_use = 2;
+run;
+
+proc sort data=average_loss;
+by group;
+run;
+
+proc sgplot data=average_loss;
+vbox loss_per_year/ category=group;
+run;
+
+proc univariate data= average_loss;
+var loss_per_year;
+by group;
+run;
+
+proc format;
+value group 0 = 'Nondemented'
+			1 = 'Demented'
+			2 = 'Converted';
+run;
+
+proc glm data=average_loss;
+class group_use (ref='Nondemented') M_F (ref="M");
+model loss_per_year = group_use M_F/ solution;
+lsmeans group_use / stderr pdiff cov cl out=adjmeans;
+format group_use group.;
+run;
+
+proc print data=adjmeans;
+run;
+
+proc sort data=average_loss;
+by group;
+run;
+
+proc means data=average_loss mean std clm;
+class group;
+var loss_per_year;
+run;
+
+*SENSITIVTY ANALYSIS;
+
+proc glm data=average_loss;
+class group_use (ref='Nondemented') M_F (ref="M");
+model loss_per_year = group_use/ solution;
+lsmeans group_use / stderr pdiff cov cl out=adjmeans;
+format group_use group.;
+run;
+
+****************************************************************
+
+START MIXED MODEL
+
+
+****************************************************************;
+
+
+data oasis_wide;
+	set bios576c.oasis_wide end=eof; *Will call end of file processing;
+	counter = 0; *Initialize counter to 0;
+	if subject_id ne '' then counter +1;
+	retain ID;
+	ID = sum(ID, counter);
+	If eof then ID = ID;
+run;
+
+proc sort data=oasis_wide;
+by ID Visit M_F group age;
+run;
+
+data oasis_wide_int (keep = ID M_F group age nWBV: drop = nWBV_last);
+set oasis_wide;
+run;
+
+proc sort data=oasis_wide_int;
+by ID M_F group age;
+run;
+
+proc transpose data=oasis_wide_int out = oasis_long (rename = (col1 = nWBV));
+by ID M_F group age;
+run;
+
+data oasis_long;
+set oasis_long;
+if group = 'Nondemented' then group_use = 0;
+else if group = 'Demented' then group_use = 1;
+else group_use = 2;
+run;
+data oasis_long;
+set oasis_long;
+if _NAME_ = "nWBV" then visit = 1;
+else if _NAME_ = 'nWBV_2' then visit = 2;
+else if _NAME_ = 'nWBV_3' then visit = 3;
+else if _NAME_ = 'nWBV_4' then delete;
+else if _NAME_ = 'nWBV_5' then delete;
+where group_use = 0 or group_use = 1;
+run;
+
+
+/*Primary analysis*/
+proc mixed data=oasis_long plots=all;
+class M_F (ref="M");
+model nWBV = group_use visit group_use*visit M_F age/ solution;
+random int / subject= id;
+estimate 'Nondemented Baseline' int 1 visit 1 / e cl;
+estimate 'Demented Baseline' int 1 group_use 1 visit 1 group_use*visit 1;
+estimate 'Effect Baseline' group_use 1 group_use*visit 1;
+estimate 'Nondemented Visit 2' int 1 visit 2;
+estimate 'Demented Visit 2' int 1 group_use 1 visit 2 group_use*visit 2;
+estimate 'Effect Visit 2' group_use 1 group_use*visit 2;
+estimate 'Nondemented Visit 3' int 1 visit 3;
+estimate 'Demented Visit 3' int 1 group_use 1 visit 3 group_use*visit 3;
+estimate 'Effect Visit 3' group_use 1 group_use*visit 3;
+run;
+
+
+proc sgplot data = oasis_long;
+vline Visit/response=nWBV stat=mean group=group_use
+limitstat=clm;
+where group_use = 0 or group_use = 1;
+run;
+
+
+
+***********************************************************
+
+Impuation
+
+**********************************************************;
+
+data impute (drop= nWBV_4 nWBV_5 nWBV_last);
+set bios576c.oasis_wide;
+if M_F = 'M' then M_F_use = 0;
+else if M_F = "F" then M_F_use = 1;
+if group = 'Nondemented' then group_use = 0;
+else if group = 'Demented' then group_use = 1;
+else if group = 'Converted' then delete;
+run;
+
+proc sort data =impute;
+by group;
+run;
+
+
+/*Sensitivity analysis*/
+
+proc MI data = impute out = imputed_oasis_wide nimpute = 20 seed= 12022022;
+fcs reg(nWBV: / details);
+var nWBV: ;
+by group;
+run;
+
+data imputed_oasis_wide (keep= _IMPUTATION_ Group_use M_F_use age nWBV:);
+set imputed_oasis_wide;
+run;
+
+proc sort data=imputed_oasis_wide;
+by _Imputation_;
+run;
+
+proc glm data = imputed_oasis_wide plots=none;
+   model nWBV = group_use M_F_use age / solution;
+   by _imputation_;
+   ods output ParameterEstimates=ests;
+run;
+
+proc mianalyze parms=ests;
+   modeleffects group_use;
+run;
+
+proc glm data = imputed_oasis_wide plots=none;
+   model nWBV_2 = group_use M_F_use age / solution;
+   by _imputation_;
+   ods output ParameterEstimates=ests2;
+run;
+
+proc mianalyze parms=ests2;
+   modeleffects group_use;
+run;
+
+proc glm data = imputed_oasis_wide plots=none;
+   model nWBV_3 = group_use M_F_use age / solution;
+   by _imputation_;
+   ods output ParameterEstimates=ests3;
+run;
+
+proc mianalyze parms=ests3;
+   modeleffects group_use;
+run;
+
+
+
+
+
+
+
+
+
+
+
+
