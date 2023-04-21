@@ -1,0 +1,150 @@
+data nh;
+	set bios576c.nhanes;
+run;
+
+proc contents data=nh;
+run;
+*Is vaping associated with increased blood lead levels? Is there interaction by age or gender?;
+
+/*Redefining vaping status */
+data nh_subs;
+	*Vaping 1 = yes, 2 = no, 7= refused, 9 = don't know;
+	set nh;
+
+	if SMQ900=1 and LBXBPB ne . then vape=1;
+	else if smq900=2 and LBXBPB ne . then vape=0;
+	else if smq900=7 or smq900=9 or smq900= . then delete;
+	
+	if 	BMXBMI < 18.5 then bmicat = 0;
+	else if 18.5 <= BMXBMI <= 24.9 then bmicat = 1;
+	else if 25 <= BMXBMI <= 29.9 then bmicat = 2;
+	else if BMXBMI >= 30 then bmicat = 3;
+	else bmicat = .;
+	
+	if DMDEDUC2 IN(3,4,5) or DMDEDUC3 IN(13,14,15) then educ = 1;
+	else if DMDEDUC2 IN(1,2) or DMDEDUC3 IN(0,1,2,3,4,5,6,7,8,9,10,11,12) then educ = 0;
+	else educ = .;
+	
+	if SMQ040 IN(1,2) then smoke = 1;
+	else if SMQ040 = 3 then smoke = 0;
+	else smoke = .;
+	
+	if ALQ130 not IN(777,999,.) then drinks = ALQ130;
+	else drinks = .;
+	
+	if SMQ905 not IN(77, 99, .) then vapeweek = SMQ905;
+	else vapeweek = .;
+	
+run;
+
+
+
+proc freq data=nh_subs;
+tables vape;
+run;
+
+proc format;
+value sex 1 = 'Male'
+		  2 = 'Female'
+		  other = 'Missing';
+value educ 0 = 'High school grad or more'
+           1 = 'Less than high school'
+		   other = 'Missing';
+value drinkstatus 1 = 'Yes'
+			      2 = 'No'
+			      7 = 'Refused'
+			      9 = 'Dont know'
+			      other = 'Missing';
+value smoke 1 = 'Yes Smoke'
+			0 = 'No Smoke'
+			other = 'missing';
+value bmi 0 = 'Underweight'
+		  1 = 'Normal Weight'
+		  2 = 'Overweight'
+		  3 = 'Obese';
+value race 1 = 'Mexican American'
+		   2 = 'Other Hispanic'
+		   3 = 'Non-Hispanic White'
+		   4 = 'Non-Hispanic Black'
+		   5 = 'Non-Hispanic Asian'
+		   6 = 'Other Race'
+		   other = 'Missing';
+value vape 0 = 'Does not vape'
+           1 = 'Does Vape'
+           other = 'Missing';
+run;
+
+/*Weighted categorical counts */
+ods noproctitle;
+
+/*Weighed by interview */
+
+proc surveyfreq data=nh_subs; 
+tables educ RIDRETH3 RIAGENDR ;
+cluster SDMVPSU;*psu;
+strata SDMVSTRA; *strata;
+weight WTINT2YR; *Weight: interview;
+where vape = 1;
+format  educ educ. RIDRETH3 race. RIAGENDR sex.;
+title 'Does Vape';
+run;
+
+proc surveyfreq data=nh_subs; 
+tables educ RIDRETH3 RIAGENDR ;
+cluster SDMVPSU;*psu;
+strata SDMVSTRA; *strata;
+weight WTINT2YR; *Weight: interview;
+where vape = 0;
+format  educ educ. RIDRETH3 race. RIAGENDR sex.;
+title 'Does not Vape';
+run;
+
+/*Weighed by exam */
+
+proc surveyfreq data=nh_subs; 
+tables bmicat smoke ALQ111;
+cluster SDMVPSU;*psu;
+strata SDMVSTRA; *strata;
+weight WTMEC2YR; *Weight: exam;
+where vape = 1;
+format bmicat bmi. smoke smoke.  ALQ111 drinkstatus.;
+title 'Does Vape';
+run;
+
+proc surveyfreq data=nh_subs; 
+tables bmicat smoke ALQ111;
+cluster SDMVPSU;*psu;
+strata SDMVSTRA; *strata;
+weight WTMEC2YR; *Weight: exam;
+where vape = 0;
+format bmicat bmi. smoke smoke.  ALQ111 drinkstatus.;
+title 'Does not Vape';
+run;
+
+/*Weighted continuous means */
+
+/*Exam weighed */
+
+proc surveymeans data =nh_subs;
+var LBXBPB ALQ130 vapeweek;
+cluster SDMVPSU;*psu;
+strata SDMVSTRA; *strata;
+weight WTMEC2YR; *Weight: exam;
+domain vape;
+format vape vape.;
+run;
+
+
+/* Interview weighed */ 
+
+proc surveymeans data =nh_subs;
+var  RIDAGEYR;
+cluster SDMVPSU;*psu;
+strata SDMVSTRA; *strata;
+weight WTINT2YR; *Weight: exam;
+domain vape;
+format vape vape.;
+run;
+
+
+
