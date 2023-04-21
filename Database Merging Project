@@ -1,0 +1,165 @@
+
+libname bios576d '/home/u59282643/BIOS 576D Data Sets';
+
+/*Reading in data sets and renaming for ease of use */
+
+*Q1;
+
+data reg;
+set bios576d.test_pta_reg;
+rename tx_dt = trans_dt
+	   px_stat_dt = pt_stat_dt
+	   px_stat = status
+	   px_d_idn = dnr_idn;
+label px_id = Patient ID (REG)
+	  tx_dt = Date of Transplant (REG)
+	  px_stat = Patient Status(FU);
+run;
+
+proc sort data = reg nodupkey;
+by px_id;
+run;
+
+proc contents data=reg;
+run;
+
+
+data fu;
+set bios576d.test_pta_fu;
+label px_id = 'Patient ID' 
+	  tx_dt = 'Date of Transplant(FU)'
+	  px_stat_dt = 'Date of Follow-up(FU)'
+	  px_stat = 'Patient Status(FU)';
+run;
+
+
+proc contents data=fu;
+run;
+
+proc sort data=fu;
+by px_id;
+run;
+
+data cdr;
+set bios576d.test_pta_cdr;
+label dnr_idn= 'Donor ID #'
+	  referral_dt = 'Date of Donor Referral'
+	  D_DOB = 'Donor Date of Birth'
+	  D_gender = 'Donor Gender';
+run;
+
+proc contents data=cdr;
+run;
+
+/*Getting patient's last follow-up data from fu*/
+data fu_last;
+set fu;
+by px_id;
+last_id = last.px_id;
+if last_id =1 then output fu_last;
+run;
+
+proc sort data = fu_last;
+by px_id;
+run;
+
+/*Merging reg and fu_last*/
+data reg_fu (drop = last_id);
+merge reg fu_last;
+by px_id;
+
+if  px_stat = '' then  px_stat = status; *Reasigns fu value from reg if no follow-up;
+else  px_stat =  px_stat; 
+
+if px_stat_dt = . then px_stat_dt = pt_stat_dt; *Reasigns fu value from reg if no follow-up;
+else px_stat_dt = px_stat_dt;
+
+if tx_dt = . then tx_dt = trans_dt; *Reasigns fu value from reg if no follow-up;
+else tx_dt = tx_dt;
+run;
+
+proc contents data = reg_fu;
+run;
+
+proc sort data=reg_fu;
+by dnr_idn;
+run;
+
+/*Merging reg_fu and cdr*/
+data full_merge;
+merge reg_fu (IN=Inreg) cdr (In=Incdr);
+by dnr_idn;
+if dnr_idn ne '' and px_id ne .;
+*All 610 IDs will have a donor ID and patient ID, so this is a valid option to subset on;
+run;
+
+proc print data = full_merge (obs=25);
+run;
+
+*Q1 extracredit; 
+
+proc freq data=full_merge;
+tables px_stat;
+run;
+
+*Q2;
+
+/*Computing donor age */
+
+data ages_full;
+set full_merge;
+donor_age = yrdif(D_DOB,referral_dt, 'AGE');
+recipient_age = yrdif(R_dob,tx_dt,'AGE');
+run;
+
+/*Getting rid of unwanted ages by transposing and deleting missing values*/ 
+proc sort data=ages_full (keep = px_id dnr_idn donor_age recipient_age) out=ages_full_sort;
+by px_id dnr_idn;
+run;
+
+proc transpose data=ages_full_sort out= ages_full_transpose prefix=age_;
+by px_id dnr_idn;
+where donor_age ne . and recipient_age ne .;
+run;
+
+/*Transposing back to wide to use PROC UNIVARIATE */
+proc transpose data=ages_full_transpose out= ages_full_wide name= _NAME_;
+by px_id dnr_idn;
+run;
+
+/*Creating plots and checking normality */ 
+
+proc univariate data=ages_full_wide plots normal;
+var donor_age recipient_age;
+run;
+
+*Q3;
+
+/*will perform a two-sample independent t-test to compare the group means*/
+
+/*must transpose back to long to perfrom t-test*/
+
+proc sort data=ages_full_wide (keep=px_id dnr_idn donor_age recipient_age) out=ttest_sort;
+by px_id dnr_idn;
+run;
+
+proc transpose data=ttest_sort out= ttest_data prefix=age_;
+by px_id dnr_idn;
+run;
+
+proc ttest data = ttest_data;
+class _NAME_;
+var age_1;
+run;
+
+
+
+
+
+
+
+
+
+
+
+
