@@ -1,0 +1,73 @@
+***************************************************************************
+This code is used to quantify how many access codes were from mailers (MSG)
+and how many were from convenience. After updating the used code file, run 
+all of the code and you will get a table with the values. 
+***************************************************************************
+
+/*Completed survey codes*/ *****NEEDS TO BE UPDATED BEFORE EVERY, NEW EXECUTION******;
+
+
+proc import datafile="/home/u59282643/Cancer Center/Cancer Center CASA Data/CASAPopulationHealth-MSGVsConvenience_DATA_LABELS_2022-11-04_1018.csv"
+			dbms= CSV
+			out= casa.used
+			replace;
+run;
+
+data casa.used;
+set casa.used;
+run;
+
+
+/*Reference codes master*/ ****Must be updated depending on where you store the data in your system, ONLY ONCE****;
+
+libname CASA "/home/u59282643/Cancer Center/Cancer Center CASA Data";
+
+proc import datafile="/home/u59282643/Cancer Center/Cancer Center CASA Data/Access Codes copy.xlsx"
+            dbms=xlsx
+            out= casa.master 
+            replace;
+run;
+
+
+proc sort data=casa.master;
+by access_code;
+run;
+
+
+/*Changes variable name for the codes*/ 
+data casa.used;
+set casa.used (rename=(_Please_enter_your_Access_Code=access_code));
+access_code = upcase(access_code);
+if redcap_record_id = 625 then delete;
+run;
+
+proc sort data=casa.used;
+by access_code;
+run;
+
+/*Creates data set with matching values across master and used codes*/ 
+data matches;
+merge casa.master (IN=inmaster) casa.used (IN=inused);
+by access_code;
+if inused then output matches;
+run;
+
+/*Sorts matches by type*/
+proc sort data=matches;
+by sample_type;
+run;
+
+data matches;
+set matches;
+if access_code = '' or sample_type = '' then delete;
+run;
+
+
+/*Creates actual report of conv vs msg*/
+proc freq data=matches;
+tables sample_type;
+run;
+
+proc freq data= matches;
+tables USED_for;
+run;
